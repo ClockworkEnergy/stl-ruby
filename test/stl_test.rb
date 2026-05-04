@@ -46,6 +46,33 @@ class StlTest < Minitest::Test
     assert_equal "series has less than two periods", error.message
   end
 
+  def test_optional_params
+    result = Stl.decompose(
+      series, period: 7,
+      seasonal_length: 13, trend_length: 23, low_pass_length: 7,
+      low_pass_degree: 1,
+      seasonal_jump: 1, trend_jump: 1, low_pass_jump: 1,
+      inner_loops: 2, outer_loops: 15
+    )
+    assert_equal series.size, result[:seasonal].size
+    assert_equal series.size, result[:trend].size
+    assert_equal series.size, result[:remainder].size
+  end
+
+  def test_optional_setter_roundtrip
+    params = Stl::StlParams.new
+    assert_nil params.seasonal_length
+    params.seasonal_length = 7
+    assert_equal 7, params.seasonal_length
+    params.seasonal_length = nil
+    assert_nil params.seasonal_length
+
+    params.low_pass_degree = 1
+    assert_equal 1, params.low_pass_degree
+    params.low_pass_degree = nil
+    assert_nil params.low_pass_degree
+  end
+
   def test_bad_seasonal_degree
     error = assert_raises(ArgumentError) do
       Stl.decompose(series, period: 7, seasonal_degree: 2)
