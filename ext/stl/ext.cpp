@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <optional>
 #include <vector>
 
 #include <rice/rice.hpp>
@@ -13,24 +14,48 @@ Rice::Array to_a(const std::vector<float>& x) {
   return a;
 }
 
+template<typename T>
+static void set_optional(std::optional<T>& field, Rice::Object value) {
+  if (value.is_nil()) {
+    field = std::nullopt;
+  } else {
+    field = Rice::detail::From_Ruby<T>().convert(value.value());
+  }
+}
+
+template<typename T>
+static Rice::Object get_optional(const std::optional<T>& field) {
+  if (!field.has_value()) {
+    return Rice::Object();
+  }
+  return Rice::Object(Rice::detail::To_Ruby<T>().convert(*field));
+}
+
+#define DEFINE_OPTIONAL_ATTR(klass, field) \
+  klass.define_method(#field, \
+    [](const stl::StlParams& self) { return get_optional(self.field); }); \
+  klass.define_method(#field "=", \
+    [](stl::StlParams& self, Rice::Object value) { set_optional(self.field, value); })
+
 extern "C"
 void Init_ext() {
   Rice::Module rb_mStl = Rice::define_module("Stl");
 
-  Rice::define_class_under<stl::StlParams>(rb_mStl, "StlParams")
+  auto rb_cStlParams = Rice::define_class_under<stl::StlParams>(rb_mStl, "StlParams")
     .define_constructor(Rice::Constructor<stl::StlParams>())
-    .define_attr("seasonal_length", &stl::StlParams::seasonal_length)
-    .define_attr("trend_length", &stl::StlParams::trend_length)
-    .define_attr("low_pass_length", &stl::StlParams::low_pass_length)
     .define_attr("seasonal_degree", &stl::StlParams::seasonal_degree)
     .define_attr("trend_degree", &stl::StlParams::trend_degree)
-    .define_attr("low_pass_degree", &stl::StlParams::low_pass_degree)
-    .define_attr("seasonal_jump", &stl::StlParams::seasonal_jump)
-    .define_attr("trend_jump", &stl::StlParams::trend_jump)
-    .define_attr("low_pass_jump", &stl::StlParams::low_pass_jump)
-    .define_attr("inner_loops", &stl::StlParams::inner_loops)
-    .define_attr("outer_loops", &stl::StlParams::outer_loops)
     .define_attr("robust", &stl::StlParams::robust);
+
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, seasonal_length);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, trend_length);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, low_pass_length);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, low_pass_degree);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, seasonal_jump);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, trend_jump);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, low_pass_jump);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, inner_loops);
+  DEFINE_OPTIONAL_ATTR(rb_cStlParams, outer_loops);
 
   rb_mStl
     .define_singleton_function(
